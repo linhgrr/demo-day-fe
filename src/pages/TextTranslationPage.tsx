@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { apiService } from '../services/api';
 
 const PageContainer = styled.div`
   min-height: calc(100vh - 73px);
@@ -128,6 +129,13 @@ const ButtonContainer = styled.div`
   margin-top: 24px;
 `;
 
+const InlineActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  gap: 12px;
+`;
+
 const ActionButton = styled.button`
   padding: 12px 24px;
   border-radius: 8px;
@@ -155,14 +163,35 @@ const SecondaryButton = styled(ActionButton)`
   }
 `;
 
+const TertiaryButton = styled(ActionButton)`
+  background-color: transparent;
+  color: #007bff;
+  border: 1px dashed #b6d4fe;
+
+  &:hover {
+    background-color: #e7f1ff;
+  }
+`;
+
 const TextTranslationPage: React.FC = () => {
   const navigate = useNavigate();
   const [originalText, setOriginalText] = useState('こんにちは');
   const [translatedText, setTranslatedText] = useState('Hello');
 
-  const handleTranslate = () => {
-    // Simulate translation API call
-    console.log('Translating text...');
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslate = async () => {
+    try {
+      setIsTranslating(true);
+      const result = await apiService.translateText(originalText, 'ja', 'en');
+      setTranslatedText(result.translatedText);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleReTranslate = async () => {
+    await handleTranslate();
   };
 
   const handleContinueToAudio = () => {
@@ -192,6 +221,11 @@ const TextTranslationPage: React.FC = () => {
             readOnly
             placeholder="Translation will appear here..."
           />
+          <InlineActions>
+            <TertiaryButton onClick={handleReTranslate} disabled={isTranslating}>
+              {isTranslating ? 'Translating...' : 'Re-translate'}
+            </TertiaryButton>
+          </InlineActions>
         </TextSection>
       </TextContainer>
       

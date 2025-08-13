@@ -4,7 +4,7 @@
 // 2. Machine Translation  
 // 3. Text to Speech
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mt-be-orcin.vercel.app';
 
 export interface SpeechToTextResponse {
   text: string;
@@ -89,12 +89,12 @@ class ApiService {
 
   // Machine Translation API
   async translateText(
-    text: string, 
-    sourceLanguage: string, 
-    targetLanguage: string
+    text: string,
+    sourceLanguage: 'ja' | 'en',
+    targetLanguage: 'en' | 'ja'
   ): Promise<TranslationResponse> {
     try {
-      return await this.request<TranslationResponse>('/translate', {
+      const response = await this.request<any>('/api/translate', {
         method: 'POST',
         body: JSON.stringify({
           text,
@@ -102,14 +102,27 @@ class ApiService {
           targetLanguage,
         }),
       });
+
+      // Map snake_case response to our camelCase type
+      const mapped: TranslationResponse = {
+        translatedText: response.translated_text,
+        sourceLanguage: response.source_language,
+        targetLanguage: response.target_language,
+        confidence: 1.0,
+      };
+
+      return mapped;
     } catch (error) {
       console.error('Translation failed:', error);
       // Return mock data for development
       return {
-        translatedText: text === 'Hello, nice to meet you' ? 'こんにちは、初めまして' : 'Hello',
+        translatedText:
+          sourceLanguage === 'en' && targetLanguage === 'ja'
+            ? 'こんにちは、初めまして'
+            : 'Hello, nice to meet you',
         sourceLanguage,
         targetLanguage,
-        confidence: 0.92
+        confidence: 0.92,
       };
     }
   }
@@ -152,7 +165,7 @@ class ApiService {
           sourceText: 'Hello, nice to meet you',
           translatedText: 'こんにちは、初めまして',
           sourceLanguage: 'en',
-          targetLanguage: 'jp',
+          targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
         },
         {
@@ -160,7 +173,7 @@ class ApiService {
           sourceText: 'Hello, nice to meet you',
           translatedText: 'こんにちは、初めまして',
           sourceLanguage: 'en',
-          targetLanguage: 'jp',
+          targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
         },
         {
@@ -168,7 +181,7 @@ class ApiService {
           sourceText: 'Hello, nice to meet you',
           translatedText: 'こんにちは、初めまして',
           sourceLanguage: 'en',
-          targetLanguage: 'jp',
+          targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
         },
       ];

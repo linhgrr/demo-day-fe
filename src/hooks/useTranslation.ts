@@ -6,8 +6,8 @@ export interface TranslationState {
   error: string | null;
   originalText: string;
   translatedText: string;
-  sourceLanguage: string;
-  targetLanguage: string;
+  sourceLanguage: 'en' | 'ja';
+  targetLanguage: 'en' | 'ja';
   audioUrl: string | null;
   history: TranslationHistory[];
 }
@@ -19,7 +19,7 @@ export const useTranslation = () => {
     originalText: '',
     translatedText: '',
     sourceLanguage: 'en',
-    targetLanguage: 'jp',
+    targetLanguage: 'ja',
     audioUrl: null,
     history: [],
   });
@@ -171,7 +171,7 @@ export const useTranslation = () => {
   }, [setLoading, setError]);
 
   // Set languages
-  const setLanguages = useCallback((sourceLanguage: string, targetLanguage: string) => {
+  const setLanguages = useCallback((sourceLanguage: 'en' | 'ja', targetLanguage: 'en' | 'ja') => {
     setState(prev => ({
       ...prev,
       sourceLanguage,
