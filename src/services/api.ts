@@ -5,6 +5,8 @@
 // 3. Text to Speech
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mt-be-orcin.vercel.app';
+// Dedicated base URL for speech-related services via ngrok
+const NGROK_BASE_URL = 'https://2197550c9e95.ngrok-free.app';
 
 export interface SpeechToTextResponse {
   text: string;
@@ -21,6 +23,7 @@ export interface TranslationResponse {
 
 export interface TextToSpeechResponse {
   audioUrl: string;
+  audioData: Blob; // Thêm audioData để lưu trữ blob
   duration: number;
 }
 
@@ -32,6 +35,7 @@ export interface TranslationHistory {
   targetLanguage: string;
   timestamp: string;
   audioUrl?: string;
+  audioData?: Blob; // Thêm audioData để lưu trữ blob
 }
 
 class ApiService {
@@ -59,6 +63,28 @@ class ApiService {
     }
   }
 
+  private async requestWithBase<T>(baseUrl: string, endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${baseUrl}${endpoint}`;
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, config);
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('API Request (custom base) failed:', error);
+      throw error;
+    }
+  }
+
   // Speech to Text API
   async speechToText(audioFile: File, language: string = 'auto'): Promise<SpeechToTextResponse> {
     const formData = new FormData();
@@ -66,8 +92,17 @@ class ApiService {
     formData.append('language', language);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/speech-to-text`, {
+      console.log('[DEBUG] STT request payload', {
+        file: { name: audioFile.name, type: audioFile.type, sizeBytes: audioFile.size },
+        language,
+        url: `${NGROK_BASE_URL}/api/speech-to-text`
+      });
+      const response = await fetch(`${NGROK_BASE_URL}/api/speech-to-text`, {
         method: 'POST',
+        // Important: Do not set Content-Type for FormData; browser will set boundary
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: formData,
       });
 
@@ -75,7 +110,9 @@ class ApiService {
         throw new Error(`Speech to Text API Error: ${response.status}`);
       }
 
-      return await response.json();
+      const json = await response.json();
+      console.log('[DEBUG] STT response', json);
+      return json;
     } catch (error) {
       console.error('Speech to Text failed:', error);
       // Return mock data for development
@@ -134,19 +171,35 @@ class ApiService {
     voice: string = 'default'
   ): Promise<TextToSpeechResponse> {
     try {
-      return await this.request<TextToSpeechResponse>('/text-to-speech', {
+      const response = await fetch(`${NGROK_BASE_URL}/api/text-to-speech`, {
         method: 'POST',
-        body: JSON.stringify({
-          text,
-          language,
-          voice,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({ text }),
       });
+
+      if (!response.ok) {
+        throw new Error(`TTS Error: ${response.status}`);
+      }
+
+      // Backend trả về file audio trực tiếp, không phải JSON
+      // Tạo blob URL từ response
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      return {
+        audioUrl,
+        audioData: audioBlob,
+        duration: 0 // Không thể xác định duration từ blob, sẽ được tính khi phát
+      };
     } catch (error) {
       console.error('Text to Speech failed:', error);
       // Return mock data for development
       return {
         audioUrl: '/mock-audio.mp3',
+        audioData: new Blob(),
         duration: 5.0
       };
     }
@@ -167,6 +220,7 @@ class ApiService {
           sourceLanguage: 'en',
           targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
+          audioData: new Blob(),
         },
         {
           id: '2',
@@ -175,6 +229,7 @@ class ApiService {
           sourceLanguage: 'en',
           targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
+          audioData: new Blob(),
         },
         {
           id: '3',
@@ -183,6 +238,7 @@ class ApiService {
           sourceLanguage: 'en',
           targetLanguage: 'ja',
           timestamp: new Date().toISOString(),
+          audioData: new Blob(),
         },
       ];
     }
@@ -202,6 +258,7 @@ class ApiService {
         id: Date.now().toString(),
         timestamp: new Date().toISOString(),
         ...translation,
+        audioData: translation.audioData || new Blob(),
       };
     }
   }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { apiService, TranslationHistory } from '../services/api';
 
 export interface TranslationState {
@@ -9,6 +9,7 @@ export interface TranslationState {
   sourceLanguage: 'en' | 'ja';
   targetLanguage: 'en' | 'ja';
   audioUrl: string | null;
+  audioData: Blob | null; // Thêm audioData để lưu trữ blob
   history: TranslationHistory[];
 }
 
@@ -21,8 +22,29 @@ export const useTranslation = () => {
     sourceLanguage: 'en',
     targetLanguage: 'ja',
     audioUrl: null,
+    audioData: null,
     history: [],
   });
+
+  // Ref để lưu trữ blob URL hiện tại để cleanup
+  const currentAudioUrlRef = useRef<string | null>(null);
+
+  // Cleanup blob URL khi component unmount
+  useEffect(() => {
+    return () => {
+      if (currentAudioUrlRef.current) {
+        URL.revokeObjectURL(currentAudioUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Cleanup blob URL cũ
+  const cleanupAudioUrl = useCallback((newAudioUrl: string | null) => {
+    if (currentAudioUrlRef.current && currentAudioUrlRef.current !== newAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrlRef.current);
+    }
+    currentAudioUrlRef.current = newAudioUrl;
+  }, []);
 
   const setError = useCallback((error: string | null) => {
     setState(prev => ({ ...prev, error, isLoading: false }));
@@ -89,9 +111,14 @@ export const useTranslation = () => {
     setLoading(true);
     try {
       const result = await apiService.textToSpeech(textToSpeak, state.targetLanguage);
+      
+      // Cleanup audio URL cũ trước khi set mới
+      cleanupAudioUrl(result.audioUrl);
+      
       setState(prev => ({
         ...prev,
         audioUrl: result.audioUrl,
+        audioData: result.audioData,
         isLoading: false,
       }));
       
@@ -100,7 +127,7 @@ export const useTranslation = () => {
       setError(error instanceof Error ? error.message : 'Text to speech failed');
       return null;
     }
-  }, [state.translatedText, state.targetLanguage, setLoading, setError]);
+  }, [state.translatedText, state.targetLanguage, setLoading, setError, cleanupAudioUrl]);
 
   // Full translation pipeline: speech -> text -> translation -> speech
   const fullTranslation = useCallback(async (audioFile: File) => {
@@ -122,10 +149,12 @@ export const useTranslation = () => {
       
       return true;
     } catch (error) {
+      // Cleanup audio URL nếu có lỗi
+      cleanupAudioUrl(null);
       setError(error instanceof Error ? error.message : 'Full translation failed');
       return false;
     }
-  }, [speechToText, translateText, textToSpeech]);
+  }, [speechToText, translateText, textToSpeech, cleanupAudioUrl]);
 
   // Save current translation to history
   const saveTranslation = useCallback(async () => {
@@ -141,6 +170,7 @@ export const useTranslation = () => {
         sourceLanguage: state.sourceLanguage,
         targetLanguage: state.targetLanguage,
         audioUrl: state.audioUrl || undefined,
+        audioData: state.audioData || undefined,
       });
 
       setState(prev => ({
@@ -196,14 +226,18 @@ export const useTranslation = () => {
 
   // Clear current translation
   const clearTranslation = useCallback(() => {
+    // Cleanup audio URL hiện tại
+    cleanupAudioUrl(null);
+    
     setState(prev => ({
       ...prev,
       originalText: '',
       translatedText: '',
       audioUrl: null,
+      audioData: null, // Xóa audioData
       error: null,
     }));
-  }, []);
+  }, [cleanupAudioUrl]);
 
   return {
     ...state,

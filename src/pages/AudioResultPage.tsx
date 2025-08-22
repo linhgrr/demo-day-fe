@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import MicIcon from '../components/MicIcon';
 
@@ -245,56 +245,80 @@ const HistoryTranslation = styled.p`
 
 const AudioResultPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
+  const { audioUrl, audioData, translatedText } = (location.state as { audioUrl?: string; audioData?: Blob; translatedText?: string }) || {};
+  
+  // Tạo blob URL từ audioData nếu có
+  const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(() => {
+    // Khởi tạo với audioUrl nếu có, hoặc tạo từ audioData nếu có
+    if (audioUrl) return audioUrl;
+    if (audioData) return URL.createObjectURL(audioData);
+    return null;
+  });
+  
+  // Cleanup khi component unmount nếu đã tạo blob URL trong initial state
+  useEffect(() => {
+    return () => {
+      if (audioData && currentAudioUrl && currentAudioUrl !== audioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+      }
+    };
+  }, [audioData, audioUrl, currentAudioUrl]);
+
+  // Xử lý audio khi props thay đổi
+  useEffect(() => {
+    try {
+      // Nếu đã có audioUrl (blob URL), sử dụng luôn
+      if (audioUrl) {
+        setCurrentAudioUrl(audioUrl);
+        return;
+      }
+      
+      // Nếu có audioData, tạo blob URL mới
+      if (audioData) {
+        const newAudioUrl = URL.createObjectURL(audioData);
+        setCurrentAudioUrl(newAudioUrl);
+      } else {
+        setCurrentAudioUrl(null);
+      }
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      setCurrentAudioUrl(null);
+    }
+  }, [audioUrl, audioData]);
 
   const waveformHeights = [12, 20, 16, 24, 18, 28, 22, 16, 20, 14, 26, 18, 22, 16, 20, 24, 18, 14, 22, 16];
 
   const handlePlay = () => {
     setIsPlaying(!isPlaying);
-    if (!isPlaying) {
-      navigate('/audio-playing');
-    }
   };
 
   return (
     <PageContainer>
       <MicrophoneContainer>
-        <MicrophoneButton>
+        <MicrophoneButton onClick={() => navigate('/') }>
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
         <ResultLabel>Translated result</ResultLabel>
       </MicrophoneContainer>
 
       <AudioPlayerContainer>
-        <PlayButton onClick={handlePlay}>
-          <PlayIcon />
-        </PlayButton>
-        
-        <WaveformContainer>
-          {waveformHeights.map((height, index) => (
-            <WaveformBar key={index} height={height} />
-          ))}
-        </WaveformContainer>
-        
-        <TimeDisplay>00:05:00</TimeDisplay>
-        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontWeight: 500, marginBottom: 8 }}>{translatedText || ''}</div>
+          {currentAudioUrl ? (
+            <audio controls src={currentAudioUrl} style={{ width: 320 }} />
+          ) : (
+            <div>No audio available. Please go back and generate audio again.</div>
+          )}
+        </div>
         <ActionButtonsContainer>
-          <ActionButton onClick={() => navigate('/')}>
+          <ActionButton onClick={() => navigate('/')}> 
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M17 1l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M3 11V9a4 4 0 014-4h14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M7 23l-4-4 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M21 13v2a4 4 0 01-4 4H3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </ActionButton>
-          
-          <ActionButton onClick={() => navigate('/')}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="18" cy="5" r="3" stroke="white" strokeWidth="2"/>
-              <circle cx="6" cy="12" r="3" stroke="white" strokeWidth="2"/>
-              <circle cx="18" cy="19" r="3" stroke="white" strokeWidth="2"/>
-              <path d="M8.59 13.51l6.83 3.98" stroke="white" strokeWidth="2"/>
-              <path d="M15.41 6.51l-6.82 3.98" stroke="white" strokeWidth="2"/>
             </svg>
           </ActionButton>
         </ActionButtonsContainer>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import MicIcon from '../components/MicIcon';
+import { apiService } from '../services/api';
 
 const HomeContainer = styled.div`
   min-height: calc(100vh - 73px);
@@ -21,13 +22,17 @@ const MicrophoneContainer = styled.div`
   margin-bottom: 80px;
 `;
 
-const MicrophoneButton = styled.button`
+const MicrophoneButton = styled.button<{ $recording: boolean}>`
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: ${props => props.$recording
+    ? 'linear-gradient(135deg, #dc3545 0%, #b02a37 100%)'
+    : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)'};
   border: 8px solid #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.2), 0 8px 32px rgba(0, 123, 255, 0.3);
+  box-shadow: ${props => props.$recording
+    ? '0 0 0 4px rgba(220, 53, 69, 0.2), 0 8px 32px rgba(220, 53, 69, 0.3)'
+    : '0 0 0 4px rgba(0, 123, 255, 0.2), 0 8px 32px rgba(0, 123, 255, 0.3)'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,7 +41,9 @@ const MicrophoneButton = styled.button`
 
   &:hover {
     transform: scale(1.05);
-    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.3), 0 12px 40px rgba(0, 123, 255, 0.4);
+    box-shadow: ${props => props.$recording
+      ? '0 0 0 4px rgba(220, 53, 69, 0.3), 0 12px 40px rgba(220, 53, 69, 0.4)'
+      : '0 0 0 4px rgba(0, 123, 255, 0.3), 0 12px 40px rgba(0, 123, 255, 0.4)'};
   }
 
   &:active {
@@ -48,7 +55,9 @@ const MicrophoneButton = styled.button`
     position: absolute;
     width: 140px;
     height: 140px;
-    border: 2px solid rgba(0, 123, 255, 0.2);
+    border: ${props => props.$recording
+      ? '2px solid rgba(220, 53, 69, 0.2)'
+      : '2px solid rgba(0, 123, 255, 0.2)'};
     border-radius: 50%;
     animation: pulse 2s infinite;
   }
@@ -181,20 +190,144 @@ const HistoryTranslation = styled.p`
   line-height: 1.4;
 `;
 
+const blobToWavFile = async (blob: Blob, fileName: string = 'recording.wav'): Promise<File> => {
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+  const channelCount = audioBuffer.numberOfChannels;
+  const length = audioBuffer.length;
+  const sampleRate = audioBuffer.sampleRate;
+  const durationSec = audioBuffer.duration;
+
+  console.log('[DEBUG] Decoded raw audio', {
+    channelCount,
+    sampleRate,
+    length,
+    durationSec: Number(durationSec.toFixed(3)),
+  });
+
+  const monoData = new Float32Array(length);
+  for (let channel = 0; channel < channelCount; channel++) {
+    const data = audioBuffer.getChannelData(channel);
+    for (let i = 0; i < length; i++) {
+      monoData[i] += data[i] / channelCount;
+    }
+  }
+
+  const bytesPerSample = 2;
+  const blockAlign = 1 * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + monoData.length * bytesPerSample);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + monoData.length * bytesPerSample, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, monoData.length * bytesPerSample, true);
+
+  let offset = 44;
+  for (let i = 0; i < monoData.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, monoData[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+
+  const wavBlob = new Blob([view], { type: 'audio/wav' });
+  const wavFile = new File([wavBlob], fileName, { type: 'audio/wav' });
+
+  console.log('[DEBUG] Built WAV file', {
+    fileName,
+    type: wavFile.type,
+    sizeBytes: wavFile.size,
+  });
+
+  return wavFile;
+};
+
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+          console.log('[DEBUG] Raw recording blob', {
+            mimeType: mediaRecorder.mimeType,
+            sizeBytes: audioBlob.size,
+            type: audioBlob.type,
+          });
+          const wavFile = await blobToWavFile(audioBlob, 'recording.wav');
+          console.log('[DEBUG] Sending WAV to STT', {
+            name: wavFile.name,
+            type: wavFile.type,
+            sizeBytes: wavFile.size,
+          });
+          const result = await apiService.speechToText(wavFile, 'auto');
+          const text = result?.text || '';
+          navigate('/text', { state: { originalText: text } });
+        } catch (err) {
+          console.error('Failed to process recording:', err);
+          navigate('/text');
+        }
+      };
+
+      console.log('[DEBUG] Start recording', { mimeType: mediaRecorder.mimeType });
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Microphone access denied or error:', error);
+    }
+  };
+
+  const stopRecording = () => {
+    const mediaRecorder = mediaRecorderRef.current;
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    setIsRecording(false);
+  };
 
   const handleMicrophoneClick = () => {
-    // Simulate recording and navigate to text translation page
-    setTimeout(() => {
-      navigate('/text');
-    }, 1000);
+    if (!isRecording) {
+      startRecording();
+    } else {
+      stopRecording();
+    }
   };
 
   return (
     <HomeContainer>
       <MicrophoneContainer>
-        <MicrophoneButton onClick={handleMicrophoneClick}>
+        <MicrophoneButton onClick={handleMicrophoneClick} aria-pressed={isRecording} title={isRecording ? 'Stop recording' : 'Start recording'} $recording={isRecording}>
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
       </MicrophoneContainer>

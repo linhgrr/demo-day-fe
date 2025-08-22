@@ -289,7 +289,7 @@ const AudioPlayingPage: React.FC = () => {
   return (
     <PageContainer>
       <MicrophoneContainer>
-        <MicrophoneButton>
+        <MicrophoneButton onClick={() => navigate('/') }>
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
         <ResultLabel>Translated result</ResultLabel>
