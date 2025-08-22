@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiService } from '../services/api';
 
@@ -175,32 +175,57 @@ const TertiaryButton = styled(ActionButton)`
 
 const TextTranslationPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [originalText, setOriginalText] = useState('こんにちは');
-  const [translatedText, setTranslatedText] = useState('Hello');
+  const [translatedText, setTranslatedText] = useState('Translated text here...');
 
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [direction, setDirection] = useState<{ source: 'ja'|'en'; target: 'ja'|'en' }>(() => ({
+    source: (localStorage.getItem('translation.source') as 'ja'|'en') || 'ja',
+    target: (localStorage.getItem('translation.target') as 'ja'|'en') || 'en',
+  }));
 
   const handleTranslate = async () => {
     try {
       setIsTranslating(true);
-      const result = await apiService.translateText(originalText, 'ja', 'en');
+      const result = await apiService.translateText(originalText, direction.source, direction.target);
       setTranslatedText(result.translatedText);
     } finally {
       setIsTranslating(false);
     }
   };
 
-  const handleReTranslate = async () => {
-    await handleTranslate();
-  };
-
-  const handleContinueToAudio = () => {
-    navigate('/audio-result');
+  const handleContinueToAudio = async () => {
+    const trimmed = translatedText.trim();
+    if (!trimmed || trimmed === 'Translated text here...') {
+      return;
+    }
+    try {
+      setIsGeneratingAudio(true);
+      const tts = await apiService.textToSpeech(trimmed, direction.target);
+      navigate('/audio-result', { state: { audioUrl: tts.audioUrl, audioData: tts.audioData, translatedText: trimmed } });
+    } finally {
+      setIsGeneratingAudio(false);
+    }
   };
 
   const handleBack = () => {
     navigate('/');
   };
+
+  useEffect(() => {
+    const state = location.state as { originalText?: string } | null;
+    if (state && state.originalText) {
+      setOriginalText(state.originalText);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const source = (localStorage.getItem('translation.source') as 'ja'|'en') || 'ja';
+    const target = (localStorage.getItem('translation.target') as 'ja'|'en') || 'en';
+    setDirection({ source, target });
+  }, []);
 
   return (
     <PageContainer>
@@ -221,11 +246,6 @@ const TextTranslationPage: React.FC = () => {
             readOnly
             placeholder="Translation will appear here..."
           />
-          <InlineActions>
-            <TertiaryButton onClick={handleReTranslate} disabled={isTranslating}>
-              {isTranslating ? 'Translating...' : 'Re-translate'}
-            </TertiaryButton>
-          </InlineActions>
         </TextSection>
       </TextContainer>
       
@@ -233,8 +253,11 @@ const TextTranslationPage: React.FC = () => {
         <SecondaryButton onClick={handleBack}>
           Back
         </SecondaryButton>
-        <PrimaryButton onClick={handleContinueToAudio}>
-          Continue to Audio
+        <TertiaryButton onClick={handleTranslate} disabled={isTranslating}>
+          {isTranslating ? 'Translating...' : 'Translate'}
+        </TertiaryButton>
+        <PrimaryButton onClick={handleContinueToAudio} disabled={!translatedText.trim() || translatedText === 'Translated text here...' || isGeneratingAudio}>
+          {isGeneratingAudio ? 'Generating audio...' : 'Continue to Audio'}
         </PrimaryButton>
       </ButtonContainer>
     </PageContainer>

@@ -323,41 +323,6 @@ const AudioResultPage: React.FC = () => {
           </ActionButton>
         </ActionButtonsContainer>
       </AudioPlayerContainer>
-
-      <HistorySection>
-        <HistoryHeader>
-          <HistoryTitle>
-            Translation history
-          </HistoryTitle>
-          <ViewAllButton>Xem tất cả</ViewAllButton>
-        </HistoryHeader>
-        
-        <HistoryList>
-          <HistoryItem>
-            <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
-            </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
-          </HistoryItem>
-          
-          <HistoryItem>
-            <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
-            </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
-          </HistoryItem>
-          
-          <HistoryItem>
-            <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
-            </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
-          </HistoryItem>
-        </HistoryList>
-      </HistorySection>
     </PageContainer>
   );
 };

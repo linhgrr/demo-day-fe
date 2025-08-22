@@ -6,7 +6,7 @@
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mt-be-orcin.vercel.app';
 // Dedicated base URL for speech-related services via ngrok
-const NGROK_BASE_URL = 'https://2197550c9e95.ngrok-free.app';
+const NGROK_BASE_URL = 'https://c535d1b93a78.ngrok-free.app';
 
 export interface SpeechToTextResponse {
   text: string;
