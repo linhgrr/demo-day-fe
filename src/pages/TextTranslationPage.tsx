@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { toast } from 'react-toastify';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { apiService } from '../services/api';
 
 const PageContainer = styled.div`
@@ -148,8 +150,13 @@ const PrimaryButton = styled(ActionButton)`
   background-color: #007bff;
   color: white;
   
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #0056b3;
+  }
+  
+  &:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
   }
 `;
 
@@ -158,8 +165,14 @@ const SecondaryButton = styled(ActionButton)`
   color: #495057;
   border: 1px solid #dee2e6;
   
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #e9ecef;
+  }
+  
+  &:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
   }
 `;
 
@@ -168,8 +181,14 @@ const TertiaryButton = styled(ActionButton)`
   color: #007bff;
   border: 1px dashed #b6d4fe;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #e7f1ff;
+  }
+  
+  &:disabled {
+    color: #6c757d;
+    border-color: #dee2e6;
+    cursor: not-allowed;
   }
 `;
 
@@ -177,7 +196,7 @@ const TextTranslationPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [originalText, setOriginalText] = useState('こんにちは');
-  const [translatedText, setTranslatedText] = useState('Translated text here...');
+  const [translatedText, setTranslatedText] = useState('翻訳結果がここに表示されます...');
 
   const [isTranslating, setIsTranslating] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -189,8 +208,30 @@ const TextTranslationPage: React.FC = () => {
   const handleTranslate = async () => {
     try {
       setIsTranslating(true);
+      toast.info('テキストを翻訳中...', {
+        position: "top-center",
+        autoClose: false,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: false,
+      });
+      
       const result = await apiService.translateText(originalText, direction.source, direction.target);
       setTranslatedText(result.translatedText);
+      
+      toast.dismiss();
+      toast.success('テキスト翻訳が完了しました！', {
+        position: "top-center",
+        autoClose: 2000,
+      });
+    } catch (error) {
+      console.error('Translation failed:', error);
+      toast.dismiss();
+      toast.error('テキスト翻訳中にエラーが発生しました', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     } finally {
       setIsTranslating(false);
     }
@@ -198,13 +239,36 @@ const TextTranslationPage: React.FC = () => {
 
   const handleContinueToAudio = async () => {
     const trimmed = translatedText.trim();
-    if (!trimmed || trimmed === 'Translated text here...') {
+    if (!trimmed || trimmed === '翻訳結果がここに表示されます...') {
       return;
     }
     try {
       setIsGeneratingAudio(true);
+      toast.info('音声を生成中...', {
+        position: "top-center",
+        autoClose: false,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: false,
+      });
+      
       const tts = await apiService.textToSpeech(trimmed, direction.target);
+      
+      toast.dismiss();
+      toast.success('音声生成が完了しました！', {
+        position: "top-center",
+        autoClose: 2000,
+      });
+      
       navigate('/audio-result', { state: { audioUrl: tts.audioUrl, audioData: tts.audioData, translatedText: trimmed } });
+    } catch (error) {
+      console.error('Text to Speech failed:', error);
+      toast.dismiss();
+      toast.error('音声生成中にエラーが発生しました', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     } finally {
       setIsGeneratingAudio(false);
     }
@@ -231,35 +295,50 @@ const TextTranslationPage: React.FC = () => {
     <PageContainer>
       <TextContainer>
         <TextSection>
-          <SectionHeader>Original input text</SectionHeader>
+          <SectionHeader>元のテキスト</SectionHeader>
           <TextArea
             value={originalText}
             onChange={(e) => setOriginalText(e.target.value)}
-            placeholder="Enter text to translate..."
+            placeholder="翻訳するテキストを入力してください..."
           />
         </TextSection>
         
         <TextSection>
-          <SectionHeader>Translated text</SectionHeader>
+          <SectionHeader>翻訳されたテキスト</SectionHeader>
           <TextArea
             value={translatedText}
             readOnly
-            placeholder="Translation will appear here..."
+            placeholder="翻訳結果がここに表示されます..."
           />
         </TextSection>
       </TextContainer>
       
       <ButtonContainer>
-        <SecondaryButton onClick={handleBack}>
-          Back
+        <SecondaryButton 
+          onClick={handleBack}
+          disabled={isTranslating || isGeneratingAudio}
+        >
+          戻る
         </SecondaryButton>
-        <TertiaryButton onClick={handleTranslate} disabled={isTranslating}>
-          {isTranslating ? 'Translating...' : 'Translate'}
+        <TertiaryButton 
+          onClick={handleTranslate} 
+          disabled={isTranslating || isGeneratingAudio}
+        >
+          {isTranslating ? '翻訳中...' : 'テキストを翻訳'}
         </TertiaryButton>
-        <PrimaryButton onClick={handleContinueToAudio} disabled={!translatedText.trim() || translatedText === 'Translated text here...' || isGeneratingAudio}>
-          {isGeneratingAudio ? 'Generating audio...' : 'Continue to Audio'}
+        <PrimaryButton 
+          onClick={handleContinueToAudio} 
+          disabled={!translatedText.trim() || translatedText === '翻訳結果がここに表示されます...' || isGeneratingAudio || isTranslating}
+        >
+          {isGeneratingAudio ? '音声生成中...' : '音声に進む'}
         </PrimaryButton>
       </ButtonContainer>
+      
+      <LoadingOverlay 
+        isVisible={isTranslating || isGeneratingAudio}
+        text={isTranslating ? "テキストを翻訳中..." : "音声を生成中..."}
+        subText={isTranslating ? "テキストを別の言語に変換中" : "翻訳されたテキストから音声を生成中"}
+      />
     </PageContainer>
   );
 };

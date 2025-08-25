@@ -292,7 +292,7 @@ const AudioPlayingPage: React.FC = () => {
         <MicrophoneButton onClick={() => navigate('/') }>
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
-        <ResultLabel>Translated result</ResultLabel>
+        <ResultLabel>翻訳結果</ResultLabel>
       </MicrophoneContainer>
 
       <AudioPlayerContainer>
@@ -338,34 +338,34 @@ const AudioPlayingPage: React.FC = () => {
       <HistorySection>
         <HistoryHeader>
           <HistoryTitle>
-            Translation history
+            翻訳履歴
           </HistoryTitle>
-          <ViewAllButton>Xem tất cả</ViewAllButton>
+          <ViewAllButton>すべて表示</ViewAllButton>
         </HistoryHeader>
         
         <HistoryList>
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>こんにちは、初めまして</HistoryText>
+            <HistoryTranslation>Hello, nice to meet you</HistoryTranslation>
           </HistoryItem>
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>お疲れ様です</HistoryText>
+            <HistoryTranslation>Thank you for your hard work</HistoryTranslation>
           </HistoryItem>
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>ありがとうございます</HistoryText>
+            <HistoryTranslation>Thank you very much</HistoryTranslation>
           </HistoryItem>
         </HistoryList>
       </HistorySection>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import styled from 'styled-components';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import HomePage from './pages/HomePage';
 import TextTranslationPage from './pages/TextTranslationPage';
 import AudioResultPage from './pages/AudioResultPage';
@@ -31,6 +33,18 @@ function App() {
             <Route path="/audio-playing" element={<AudioPlayingPage />} />
           </Routes>
         </MainContent>
+        <ToastContainer
+          position="top-center"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
       </Router>
     </AppContainer>
   );

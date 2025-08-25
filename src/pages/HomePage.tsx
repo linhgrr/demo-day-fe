@@ -1,7 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import MicIcon from '../components/MicIcon';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { apiService } from '../services/api';
 
 const HomeContainer = styled.div`
@@ -22,32 +25,49 @@ const MicrophoneContainer = styled.div`
   margin-bottom: 80px;
 `;
 
-const MicrophoneButton = styled.button<{ $recording: boolean}>`
+const MicrophoneButton = styled.button<{ $recording: boolean; disabled?: boolean }>`
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: ${props => props.$recording
-    ? 'linear-gradient(135deg, #dc3545 0%, #b02a37 100%)'
-    : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)'};
+  background: ${props => {
+    if (props.disabled) {
+      return 'linear-gradient(135deg, #6c757d 0%, #495057 100%)';
+    }
+    return props.$recording
+      ? 'linear-gradient(135deg, #dc3545 0%, #b02a37 100%)'
+      : 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+  }};
   border: 8px solid #ffffff;
-  box-shadow: ${props => props.$recording
-    ? '0 0 0 4px rgba(220, 53, 69, 0.2), 0 8px 32px rgba(220, 53, 69, 0.3)'
-    : '0 0 0 4px rgba(0, 123, 255, 0.2), 0 8px 32px rgba(0, 123, 255, 0.3)'};
+  box-shadow: ${props => {
+    if (props.disabled) {
+      return '0 0 0 4px rgba(108, 117, 125, 0.2), 0 8px 32px rgba(108, 117, 125, 0.3)';
+    }
+    return props.$recording
+      ? '0 0 0 4px rgba(220, 53, 69, 0.2), 0 8px 32px rgba(220, 53, 69, 0.3)'
+      : '0 0 0 4px rgba(0, 123, 255, 0.2), 0 8px 32px rgba(0, 123, 255, 0.3)';
+  }};
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
   position: relative;
+  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
+  opacity: ${props => props.disabled ? 0.6 : 1};
 
   &:hover {
-    transform: scale(1.05);
-    box-shadow: ${props => props.$recording
-      ? '0 0 0 4px rgba(220, 53, 69, 0.3), 0 12px 40px rgba(220, 53, 69, 0.4)'
-      : '0 0 0 4px rgba(0, 123, 255, 0.3), 0 12px 40px rgba(0, 123, 255, 0.4)'};
+    transform: ${props => props.disabled ? 'none' : 'scale(1.05)'};
+    box-shadow: ${props => {
+      if (props.disabled) {
+        return '0 0 0 4px rgba(108, 117, 125, 0.2), 0 8px 32px rgba(108, 117, 125, 0.3)';
+      }
+      return props.$recording
+        ? '0 0 0 4px rgba(220, 53, 69, 0.3), 0 12px 40px rgba(220, 53, 69, 0.4)'
+        : '0 0 0 4px rgba(0, 123, 255, 0.3), 0 12px 40px rgba(0, 123, 255, 0.4)';
+    }};
   }
 
   &:active {
-    transform: scale(0.95);
+    transform: ${props => props.disabled ? 'none' : 'scale(0.95)'};
   }
 
   &::before {
@@ -55,11 +75,16 @@ const MicrophoneButton = styled.button<{ $recording: boolean}>`
     position: absolute;
     width: 140px;
     height: 140px;
-    border: ${props => props.$recording
-      ? '2px solid rgba(220, 53, 69, 0.2)'
-      : '2px solid rgba(0, 123, 255, 0.2)'};
+    border: ${props => {
+      if (props.disabled) {
+        return '2px solid rgba(108, 117, 125, 0.2)';
+      }
+      return props.$recording
+        ? '2px solid rgba(220, 53, 69, 0.2)'
+        : '2px solid rgba(0, 123, 255, 0.2)';
+    }};
     border-radius: 50%;
-    animation: pulse 2s infinite;
+    animation: ${props => props.disabled ? 'none' : 'pulse 2s infinite'};
   }
 
   @keyframes pulse {
@@ -260,6 +285,7 @@ const blobToWavFile = async (blob: Blob, fileName: string = 'recording.wav'): Pr
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -278,6 +304,16 @@ const HomePage: React.FC = () => {
 
       mediaRecorder.onstop = async () => {
         try {
+          setIsProcessing(true);
+          toast.info('音声を処理中...', {
+            position: "top-center",
+            autoClose: false,
+            hideProgressBar: false,
+            closeOnClick: false,
+            pauseOnHover: true,
+            draggable: false,
+          });
+
           const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
           console.log('[DEBUG] Raw recording blob', {
             mimeType: mediaRecorder.mimeType,
@@ -292,10 +328,24 @@ const HomePage: React.FC = () => {
           });
           const result = await apiService.speechToText(wavFile, 'auto');
           const text = result?.text || '';
+          
+          toast.dismiss();
+          toast.success('音声処理が完了しました！', {
+            position: "top-center",
+            autoClose: 2000,
+          });
+          
           navigate('/text', { state: { originalText: text } });
         } catch (err) {
           console.error('Failed to process recording:', err);
+          toast.dismiss();
+          toast.error('音声処理中にエラーが発生しました', {
+            position: "top-center",
+            autoClose: 3000,
+          });
           navigate('/text');
+        } finally {
+          setIsProcessing(false);
         }
       };
 
@@ -304,6 +354,10 @@ const HomePage: React.FC = () => {
       setIsRecording(true);
     } catch (error) {
       console.error('Microphone access denied or error:', error);
+      toast.error('マイクにアクセスできません', {
+        position: "top-center",
+        autoClose: 3000,
+      });
     }
   };
 
@@ -317,9 +371,9 @@ const HomePage: React.FC = () => {
   };
 
   const handleMicrophoneClick = () => {
-    if (!isRecording) {
+    if (!isRecording && !isProcessing) {
       startRecording();
-    } else {
+    } else if (isRecording) {
       stopRecording();
     }
   };
@@ -327,7 +381,13 @@ const HomePage: React.FC = () => {
   return (
     <HomeContainer>
       <MicrophoneContainer>
-        <MicrophoneButton onClick={handleMicrophoneClick} aria-pressed={isRecording} title={isRecording ? 'Stop recording' : 'Start recording'} $recording={isRecording}>
+        <MicrophoneButton 
+          onClick={handleMicrophoneClick} 
+          aria-pressed={isRecording} 
+          title={isRecording ? '録音を停止' : '録音を開始'} 
+          $recording={isRecording}
+          disabled={isProcessing}
+        >
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
       </MicrophoneContainer>
@@ -335,37 +395,43 @@ const HomePage: React.FC = () => {
       <HistorySection>
         <HistoryHeader>
           <HistoryTitle>
-            Translation history
+            翻訳履歴
           </HistoryTitle>
-          <ViewAllButton>Xem tất cả</ViewAllButton>
+          <ViewAllButton>すべて表示</ViewAllButton>
         </HistoryHeader>
         
         <HistoryList>
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>こんにちは、初めまして</HistoryText>
+            <HistoryTranslation>Hello, nice to meet you</HistoryTranslation>
           </HistoryItem>
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>お疲れ様です</HistoryText>
+            <HistoryTranslation>Thank you for your hard work</HistoryTranslation>
           </HistoryItem>
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>EN → JP</LanguageTag>
+              <LanguageTag>JP → EN</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>Hello, nice to meet you</HistoryText>
-            <HistoryTranslation>こんにちは、初めまして</HistoryTranslation>
+            <HistoryText>ありがとうございます</HistoryText>
+            <HistoryTranslation>Thank you very much</HistoryTranslation>
           </HistoryItem>
         </HistoryList>
       </HistorySection>
+      
+      <LoadingOverlay 
+        isVisible={isProcessing}
+        text="音声を処理中..." 
+        subText="音声をテキストに変換中"
+      />
     </HomeContainer>
   );
 };

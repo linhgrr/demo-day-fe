@@ -300,7 +300,7 @@ const AudioResultPage: React.FC = () => {
         <MicrophoneButton onClick={() => navigate('/') }>
           <MicIcon size={32} color="#FFFFFF" />
         </MicrophoneButton>
-        <ResultLabel>Translated result</ResultLabel>
+        <ResultLabel>翻訳結果</ResultLabel>
       </MicrophoneContainer>
 
       <AudioPlayerContainer>
@@ -309,7 +309,7 @@ const AudioResultPage: React.FC = () => {
           {currentAudioUrl ? (
             <audio controls src={currentAudioUrl} style={{ width: 320 }} />
           ) : (
-            <div>No audio available. Please go back and generate audio again.</div>
+            <div>音声が利用できません。戻って音声を再生成してください。</div>
           )}
         </div>
         <ActionButtonsContainer>
