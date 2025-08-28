@@ -78,6 +78,8 @@ const ArrowIcon = styled.span`
 const Header: React.FC = () => {
   const options = useMemo(() => ([
     { key: 'ja-en', label: 'JA → EN', source: 'ja', target: 'en' },
+    { key: 'ja-zh', label: 'JA → ZH', source: 'ja', target: 'zh' },
+    { key: 'ja-ko', label: 'JA → KO', source: 'ja', target: 'ko' },
     { key: 'en-ja', label: 'EN → JA', source: 'en', target: 'ja' },
   ]), []);
 
@@ -98,6 +100,16 @@ const Header: React.FC = () => {
   const choose = (key: string) => {
     setSelectedKey(key);
     setOpen(false);
+    
+    // Update localStorage first
+    const selectedOption = options.find(o => o.key === key);
+    if (selectedOption) {
+      localStorage.setItem('translation.source', selectedOption.source);
+      localStorage.setItem('translation.target', selectedOption.target);
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('translationDirectionChanged'));
+    }
   };
 
   return (

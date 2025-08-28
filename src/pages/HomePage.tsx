@@ -411,18 +411,18 @@ const HomePage: React.FC = () => {
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>JP → EN</LanguageTag>
+              <LanguageTag>JP → ZH</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>お疲れ様です</HistoryText>
-            <HistoryTranslation>Thank you for your hard work</HistoryTranslation>
+            <HistoryText>電車が遅延しております</HistoryText>
+            <HistoryTranslation>列车延误了</HistoryTranslation>
           </HistoryItem>
           
           <HistoryItem>
             <HistoryItemHeader>
-              <LanguageTag>JP → EN</LanguageTag>
+              <LanguageTag>JP → KO</LanguageTag>
             </HistoryItemHeader>
-            <HistoryText>ありがとうございます</HistoryText>
-            <HistoryTranslation>Thank you very much</HistoryTranslation>
+            <HistoryText>お疲れ様です</HistoryText>
+            <HistoryTranslation>수고하셨습니다</HistoryTranslation>
           </HistoryItem>
         </HistoryList>
       </HistorySection>

@@ -128,7 +128,7 @@ class ApiService {
   async translateText(
     text: string,
     sourceLanguage: 'ja' | 'en',
-    targetLanguage: 'en' | 'ja'
+    targetLanguage: 'en' | 'ja' | 'zh' | 'ko'
   ): Promise<TranslationResponse> {
     try {
       const response = await this.request<any>('/api/translate', {
@@ -152,11 +152,27 @@ class ApiService {
     } catch (error) {
       console.error('Translation failed:', error);
       // Return mock data for development
+      let mockTranslatedText = '';
+      if (sourceLanguage === 'ja') {
+        switch (targetLanguage) {
+          case 'en':
+            mockTranslatedText = 'Hello, nice to meet you';
+            break;
+          case 'zh':
+            mockTranslatedText = '你好，很高兴见到你';
+            break;
+          case 'ko':
+            mockTranslatedText = '안녕하세요, 만나서 반갑습니다';
+            break;
+          default:
+            mockTranslatedText = 'Hello, nice to meet you';
+        }
+      } else if (sourceLanguage === 'en') {
+        mockTranslatedText = 'こんにちは、初めまして';
+      }
+      
       return {
-        translatedText:
-          sourceLanguage === 'en' && targetLanguage === 'ja'
-            ? 'こんにちは、初めまして'
-            : 'Hello, nice to meet you',
+        translatedText: mockTranslatedText,
         sourceLanguage,
         targetLanguage,
         confidence: 0.92,
@@ -224,19 +240,19 @@ class ApiService {
         },
         {
           id: '2',
-          sourceText: 'Hello, nice to meet you',
-          translatedText: 'こんにちは、初めまして',
-          sourceLanguage: 'en',
-          targetLanguage: 'ja',
+          sourceText: '電車が遅延しております',
+          translatedText: '列车延误了',
+          sourceLanguage: 'ja',
+          targetLanguage: 'zh',
           timestamp: new Date().toISOString(),
           audioData: new Blob(),
         },
         {
           id: '3',
-          sourceText: 'Hello, nice to meet you',
-          translatedText: 'こんにちは、初めまして',
-          sourceLanguage: 'en',
-          targetLanguage: 'ja',
+          sourceText: 'お疲れ様です',
+          translatedText: '수고하셨습니다',
+          sourceLanguage: 'ja',
+          targetLanguage: 'ko',
           timestamp: new Date().toISOString(),
           audioData: new Blob(),
         },

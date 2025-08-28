@@ -198,12 +198,31 @@ const TextTranslationPage: React.FC = () => {
   const [originalText, setOriginalText] = useState('こんにちは');
   const [translatedText, setTranslatedText] = useState('翻訳結果がここに表示されます...');
 
+  const getPlaceholderText = () => {
+    if (direction.source === 'ja') {
+      switch (direction.target) {
+        case 'en':
+          return 'Translation results will appear here...';
+        case 'zh':
+          return '翻译结果将在这里显示...';
+        case 'ko':
+          return '번역 결과가 여기에 표시됩니다...';
+        default:
+          return '翻訳結果がここに表示されます...';
+      }
+    } else {
+      return '翻訳結果がここに表示されます...';
+    }
+  };
+
   const [isTranslating, setIsTranslating] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [direction, setDirection] = useState<{ source: 'ja'|'en'; target: 'ja'|'en' }>(() => ({
+  const [direction, setDirection] = useState<{ source: 'ja'|'en'; target: 'ja'|'en'|'zh'|'ko' }>(() => ({
     source: (localStorage.getItem('translation.source') as 'ja'|'en') || 'ja',
-    target: (localStorage.getItem('translation.target') as 'ja'|'en') || 'en',
+    target: (localStorage.getItem('translation.target') as 'ja'|'en'|'zh'|'ko') || 'en',
   }));
+
+
 
   const handleTranslate = async () => {
     try {
@@ -287,8 +306,27 @@ const TextTranslationPage: React.FC = () => {
 
   useEffect(() => {
     const source = (localStorage.getItem('translation.source') as 'ja'|'en') || 'ja';
-    const target = (localStorage.getItem('translation.target') as 'ja'|'en') || 'en';
+    const target = (localStorage.getItem('translation.target') as 'ja'|'en'|'zh'|'ko') || 'en';
     setDirection({ source, target });
+  }, []);
+
+  // Listen for changes from Header dropdown
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const source = (localStorage.getItem('translation.source') as 'ja'|'en') || 'ja';
+      const target = (localStorage.getItem('translation.target') as 'ja'|'en'|'zh'|'ko') || 'en';
+      setDirection({ source, target });
+      
+      // Reset translated text when language changes
+      setTranslatedText('翻訳結果がここに表示されます...');
+    };
+
+    // Listen for custom event from Header
+    window.addEventListener('translationDirectionChanged', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('translationDirectionChanged', handleStorageChange);
+    };
   }, []);
 
   return (
@@ -308,7 +346,7 @@ const TextTranslationPage: React.FC = () => {
           <TextArea
             value={translatedText}
             readOnly
-            placeholder="翻訳結果がここに表示されます..."
+            placeholder={getPlaceholderText()}
           />
         </TextSection>
       </TextContainer>
