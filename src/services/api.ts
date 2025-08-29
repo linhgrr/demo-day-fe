@@ -7,6 +7,8 @@
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://mt-be-orcin.vercel.app';
 // Dedicated base URL for speech-related services via ngrok
 const NGROK_BASE_URL = 'https://c535d1b93a78.ngrok-free.app';
+// Dedicated base URL for new TTS service
+const TTS_BASE_URL = 'https://b26f57261e4b.ngrok-free.app';
 
 export interface SpeechToTextResponse {
   text: string;
@@ -180,43 +182,140 @@ class ApiService {
     }
   }
 
-  // Text to Speech API
+  // Text to Speech API - Updated with new API format
   async textToSpeech(
     text: string, 
     language: string = 'en',
     voice: string = 'default'
   ): Promise<TextToSpeechResponse> {
     try {
-      const response = await fetch(`${NGROK_BASE_URL}/api/text-to-speech`, {
+      // Map language codes to API supported formats
+      const languageMap: { [key: string]: string } = {
+        'ja': 'japanese',
+        'en': 'english',
+        'zh': 'chinese',
+        'ko': 'korean'
+      };
+      
+      const apiLanguage = languageMap[language] || language;
+      
+      console.log('[DEBUG] TTS request payload', {
+        text,
+        originalLanguage: language,
+        mappedLanguage: apiLanguage,
+        url: `${TTS_BASE_URL}/audio/${apiLanguage}`
+      });
+
+      const response = await fetch(`${TTS_BASE_URL}/audio/${apiLanguage}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
+          'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text })
       });
 
       if (!response.ok) {
-        throw new Error(`TTS Error: ${response.status}`);
+        throw new Error(`TTS Error: ${response.status} - ${response.statusText}`);
       }
 
-      // Backend trả về file audio trực tiếp, không phải JSON
-      // Tạo blob URL từ response
-      const audioBlob = await response.blob();
+      const data = await response.json();
+      console.log('[DEBUG] TTS response success:', data);
+
+      // Convert base64 to blob
+      const audioBlob = this.base64ToBlob(data.audio_data, data.mime_type);
       const audioUrl = URL.createObjectURL(audioBlob);
 
       return {
         audioUrl,
         audioData: audioBlob,
-        duration: 0 // Không thể xác định duration từ blob, sẽ được tính khi phát
+        duration: 0 // Will be calculated when playing
       };
     } catch (error) {
       console.error('Text to Speech failed:', error);
+      
       // Return mock data for development
       return {
         audioUrl: '/mock-audio.mp3',
         audioData: new Blob(),
         duration: 5.0
+      };
+    }
+  }
+
+  // Helper function to convert base64 to blob
+  private base64ToBlob(base64: string, mimeType: string): Blob {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }
+
+  // Test TTS server connection
+  async testTTSConnection(): Promise<boolean> {
+    try {
+      const response = await fetch(`${TTS_BASE_URL}/health`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      
+      console.log('[DEBUG] TTS server connection test:', {
+        status: response.status,
+        data: await response.json()
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error('[DEBUG] TTS server connection test failed:', error);
+      return false;
+    }
+  }
+
+  // Test TTS request format
+  async testTTSRequest(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const testPayload = { text: "Hello" };
+      console.log('[DEBUG] Testing TTS request format with:', testPayload);
+      
+      const response = await fetch(`${TTS_BASE_URL}/audio/english`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(testPayload),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DEBUG] TTS test request successful:', {
+          status: response.status,
+          message: data.message,
+          hasAudioData: !!data.audio_data
+        });
+        return { success: true };
+      } else {
+        const errorText = await response.text();
+        console.error('[DEBUG] TTS test request failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        return { 
+          success: false, 
+          error: `Status ${response.status}: ${errorText}` 
+        };
+      }
+    } catch (error) {
+      console.error('[DEBUG] TTS test request error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       };
     }
   }

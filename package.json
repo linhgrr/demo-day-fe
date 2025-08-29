@@ -4,6 +4,7 @@
   "description": "React frontend for translation app with speech-to-text, machine translation, and text-to-speech capabilities",
   "private": true,
   "dependencies": {
+    "@google-cloud/text-to-speech": "^6.2.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
